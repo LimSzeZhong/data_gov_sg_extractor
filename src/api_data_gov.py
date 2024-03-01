@@ -4,116 +4,355 @@ Created on Tue Feb 27 20:25:38 2024
 
 @author: lim
 """
+'''
+Contains Collection Class, Dataset Class, and one wrapper function for
+downloading the datasets.
+'''
 
+import pandas as pd
 import requests
-import json
-from typing import Optional, List, Dict, Any, Tuple
-import config as CFG
+import os
+from typing import Optional, List, Dict, Tuple, TypeVar
+import src.config as CFG
 
-# url = f"https://api-production.data.gov.sg/v2/public/api/collections/2/metadata"
-url = 'https://data.gov.sg/api/action/datastore_search?resource_id=d_dcda79be4aded5f9e769b8e23ff69b47&limit=1000'
+pdDF = TypeVar('pandas.core.frame.DataFrame')
 
-json_content = requests.get(url).json()
-content = json_content['result']
-['resource_id', 'fields', 'records', '_links', 'total']
-print(json_content['result'])
-# print(json_content['data']['collectionMetadata'].keys())
+class Collection:
+    def __init__(self, collection_id: str) -> Tuple[str, str, List[str]]:
+        '''
+        Parameters
+        ----------
+        collection_id : str
+            collection id from data.gov.sg
 
-# for x in json_content['data']['datasets']:
-#     print(x['datasetId'])
-#     print(x['name'])
+        Returns
+        -------
+        Tuple[str, str, List[str]]
+            collection name, last updated date, list of dataset id within
+            collection.
 
+        '''
+        self.collection_id = str(collection_id)
+        self.col_url_info = CFG.api['collection'] + f'/{self.collection_id}/' +\
+                            CFG.api['meta']
+        
+        self.collection_name = None
+        self.last_updated = None
+        self.dataset_id_list = None
+        
+        self.collection_info()
+        
+        
+    def collection_info(self) -> Tuple[str, str, List[str]]:
+        '''
+        Returns
+        -------
+        Tuple(str, str, List[str]
+            returns the collection name, last updated date, and a list of datasetID
 
-def api_type(cd: str, inputitem: str) -> str:
+        '''
+        json_content = requests.get(self.col_url_info).json()
+        content = json_content['data']['collectionMetadata']
+        
+        self.collection_name = content['name']
+        self.last_updated = content['lastUpdatedAt'][:10]
+        self.dataset_id_list = content['childDatasets']
+        
+        return (self.collection_name, self.last_updated, self.dataset_id_list)
+    
+
+class Dataset:
+    def __init__(self, dataset_id: str, pdf: str = 'No', csv: str = 'No',\
+                 csvdir: Optional[str] = None):
+        '''
+        Parameters
+        ----------
+        dataset_id : str
+            dataset id found in url
+        pdf : str
+            Flag to generate pandas Dataframe.
+            Use 'Yes' if want to generate            
+        csv : str
+            Flag to generate csv for whole dataset or not.
+            Use 'Yes' if want to generate
+        csvdir : TYPE, optional
+            csv directory name. The path will be the date and file name.
+
+        Returns
+        -------
+        None.
+
+        '''
+        self.dataset_id = dataset_id
+        self.url_download = CFG.api['dataset_dl'] + f'{self.dataset_id}'
+        self.url_info = CFG.api['dataset'] + f'/{self.dataset_id}/' + CFG.api['meta']
+        
+        self.dataset_name = None
+        self.last_updated = None
+        self.col_info = None
+        self.dataframe_data = None
+        self.total_results = 0
+        self.csv_final_filepath = None
+        
+        self.dataset_info()
+        
+        if pdf == 'Yes':
+            self.dataset_download_pdf()
+            
+        if csv == 'Yes':
+            self.dataset_download_csv(directory=csvdir)
+
+        
+    def dataset_info(self) -> Tuple[str, str, Dict[str,List[str]]]:
+        '''
+        Returns
+        -------
+        Tuple(str, str, Dict[str:List[str]])
+            returns the collection name, last updated date, a dict of column info.
+            The dict will contain mapping_id, name, datatype, description, index,
+            as the keys.
+        '''       
+        json_content = requests.get(self.url_info).json()
+        content = json_content['data']
+        content_inner = json_content['data']['columnMetadata']
+        
+        dataset_name = content['name']
+        last_updated = content['lastUpdatedAt'][:10]
+        
+        col_mapping_id = content_inner['order'] # returns a list
+        col_name = []
+        col_datatype = []
+        col_description = []
+        col_index = []
+        
+        for x in col_mapping_id:
+            col_attr = content_inner['metaMapping'][x]
+            try:
+                col_name.append(col_attr['name'])
+            except:
+                print("No column name attribute")
+            try:
+                col_datatype.append(col_attr['dataType'])
+            except:
+                print('No dataType attribute')
+            try:
+                col_index.append(col_attr['index'])
+            except:
+                print('No index attribute')
+        
+        col_info = {'col_mapping_id': col_mapping_id,
+                    'col_name': col_name,
+                    'col_datatype': col_datatype,
+                    'col_description': col_description,
+                    'col_index': col_index}
+        
+        self.dataset_name = dataset_name
+        self.last_updated = last_updated
+        self.col_info = col_info
+        
+        return (self.dataset_name, self.last_updated, self.col_info)
+    
+    def dataset_download_csv(self, directory=None) -> pdDF:
+        '''
+        Parameters
+        ----------
+        directory : TYPE, optional
+            folder / directory where the csv file will be saved to.
+
+        Returns
+        -------
+        pdf : pandas Dataframe
+            Function will produce a csv file in the directory with the 
+            last updated date of the dataset together with the dataset name.
+
+        '''
+        if self.dataset_name == None or self.last_updated == None:
+            dataset_name, last_updated, col_info = self.dataset_info(self.dataset_id)
+        
+        if directory==None:
+            filepath = f"{self.last_updated} {self.dataset_name}.csv"
+        else:
+            filepath = f"{directory}/{self.last_updated} {self.dataset_name}.csv"
+        
+        self.csv_final_filepath = filepath
+        
+        if self.dataframe_data is None:
+            self.dataframe_data = self.dataset_download_pdf()
+            
+        self.dataframe_data.to_csv(self.csv_final_filepath, index=False)
+        print(f'{self.csv_final_filepath} downloaded')
+        
+        return self.dataframe_data
+    
+    def dataset_download_pdf(self) -> pdDF:
+        '''
+        Returns
+        -------
+        pdDF
+            pd.DataFrame that contains everything
+        '''
+        print(f"Downloading from {self.url_download}")
+        ini_json_content = requests.get(self.url_download).json()
+        
+        self.total_results = ini_json_content['result']['total']
+        print(f'There are a total of {self.total_results} rows in this dataset')
+        
+        offset_start, offset_end, limit = self.dataset_download_counter()
+        for x in range(offset_start, offset_end, limit):
+            if x == 0:
+                offset_limit_str = f"&limit={limit}"
+            elif x > 0:
+                offset_limit_str = f"&offset={x}&limit={limit}"
+            loop_url = self.url_download + offset_limit_str
+            loop_json_content = requests.get(loop_url).json()
+            loop_record = loop_json_content['result']['records']
+            loop_record_df = pd.DataFrame(loop_record)
+            if x == offset_start:
+                overall_loop_record_df = loop_record_df
+            else:
+                overall_loop_record_df = pd.concat([overall_loop_record_df, loop_record_df], axis=0, ignore_index=True)
+            if x > (offset_end-limit):
+                print(f"Processed {self.total_results} / {self.total_results} rows.")
+            else:
+                print(f"Processed {x+limit} / {self.total_results} rows.")
+                
+        self.dataframe_data = overall_loop_record_df
+            
+        return self.dataframe_data
+    
+    def dataset_download_counter(self) -> Tuple[int, int, int]:
+        '''
+        Returns
+        -------
+        Tuple[int, int, int]
+            A range to feed the for loop in dataset_download_pdf that downloads the
+            whole dataset.
+        '''
+        if int(self.total_results) <= 1000:
+            offset_end = None
+            limit = None
+        elif int(self.total_results) > 1000:
+            offset_end = int(self.total_results) + 1
+            limit = 1000
+        
+        return (0, offset_end, limit)
+    
+def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No',\
+                        indcsv: str = 'No', csvdir: Optional[str] = None)\
+                        -> pdDF:
     '''
+    Wrapper function to download the whole collection
 
-    Parameters
-    ----------
-    cd : str
-        either 'c' or 'd'.
-        'c' will be for collections
-        'd' will be for datasets
-    inputitem : str
-        either collectionId or datasetID
-
-    Returns
-    -------
-    str
-        DESCRIPTION.
-
-    '''
-    return None
-
-def collection_info(collection_id: str) -> Tuple[str, str, List[str]]:
-    '''
     Parameters
     ----------
     collection_id : str
-        data.gov.sg collection_id
+        DESCRIPTION.
+    chk : str
+        Flag for whether to check csvdir for any existing csv's which are same.
+        Options of 'Yes' or 'No'.
+        If 'Yes', won't download csv if same last updated date.
+        If 'No', wont check and will just download. Will overwrite if have existing.
+    combcsv : str, optional
+        Flag for whether to combine the whole collection into one csv.
+    indcsv : str, optional
+        Flag for whether to download individual datasets in the collection.
+    csvdir : Optional[str], optional
+        The place where csv are stored.
+        Will check this directory if existing files are stored.
+        If not, will re-download.
 
     Returns
     -------
-    Tuple(str, str, List[str]
-        returns the collection name, last updated date, and a list of datasetID
+    pdDF
+        A combined pandas Dataframe.
 
     '''
-    url = CFG.api['collection'] + f'/{collection_id}/' + CFG.api['meta']
+    collection_object = Collection(collection_id)
+    countofdataset = len(collection_object.dataset_id_list)
+    print(f'Collection {collection_id} contains {countofdataset} no(s) of dataset.')
     
-    json_content = requests.get(url).json()
-    content = json_content['data']['collectionMetadata']
+    combinedpdf = None
     
-    collection_name = content['name']
-    last_updated = content['lastUpdatedAt'][:10]
-    dataset_id_list = content['childDatasets']
-    
-    return (collection_name, last_updated, dataset_id_list)
+    if chk == 'Yes':
+        ### Confirm which dataset is missing
+        # Current list in directory.
+        listindir = []
+        for root, dirs, files in os.walk(os.getcwd()):
+            for file in files:
+                file_path = os.path.relpath(os.path.join(root, file), os.getcwd())
+                listindir.append(file_path.replace('\\','/'))
+        
+        # Check for missing.
+        missingdataset = []
+        for x in range(countofdataset):
+            # Get the current file path
+            d_id = collection_object.dataset_id_list[x]
+            d_obj = Dataset(d_id, 'No', 'No', csvdir)
+            if csvdir==None:
+                filepath = f"{d_obj.last_updated} {d_obj.dataset_name}.csv"
+            else:
+                filepath = f"{csvdir}/{d_obj.last_updated} {d_obj.dataset_name}.csv"
 
-def dataset_info(dataset_id: str) -> Tuple[str, str, Dict[str,List[str]]]:
-    '''
-    Parameters
-    ----------
-    dataset_id : str
-        data.gov.sg dataset_id
+            if filepath in listindir:
+                if combinedpdf is None:
+                    combinedpdf = pd.read_csv(filepath)
+                else:
+                    pdf_not_missing = pd.read_csv(filepath)
+                    combinedpdf = pd.concat([combinedpdf, pdf_not_missing], axis=0, ignore_index=True)
+            else:
+                missingdataset.append(d_id)
+            print(f'Checked {x+1} out of {countofdataset} datasets.')
+                
+        if len(missingdataset) == 0:
+            print('All files were downloaded previously.')
+        else:
+            print(f'{len(missingdataset)} out of {countofdataset} datasets missing.')
+            for x in range(len(missingdataset)):
+                print(f'Start of Missing Dataset {x+1} out of {len(missingdataset)}')
+                d_id = missingdataset[x]
+                
+                if indcsv == 'Yes':
+                    d_obj = Dataset(d_id, 'Yes', 'Yes', csvdir)
+                    
+                elif indcsv == 'No':
+                    d_obj = Dataset(d_id, 'Yes', 'No')
+                
+                if combinedpdf is None:
+                    combinedpdf = d_obj.dataframe_data
+                else:
+                    combinedpdf = pd.concat([combinedpdf, d_obj.dataframe_data], axis=0, ignore_index=True)
+                print(f'End of Missing Dataset {x+1} out of {len(missingdataset)}')
+    
+    elif chk == 'No':
+        
+        for x in range(countofdataset):
+            print('Start of Dataset {x+1} out of {countofdataset}')
+            dataset_id = collection_object.dataset_id_list[x]
+            
+            if indcsv == 'Yes':
+                dataset_obj = Dataset(dataset_id, 'Yes', 'Yes', csvdir)
+                
+            elif indcsv == 'No':
+                dataset_obj = Dataset(dataset_id, 'Yes', 'No')
+            
+            if x == 0:
+                combinedpdf = dataset_obj.dataframe_data
+            else:
+                combinedpdf = pd.concat([combinedpdf, dataset_obj.dataframe_data], axis=0, ignore_index=True)
+            print('End of Dataset {x+1} out of {countofdataset}')
+    
+    if combcsv == 'Yes':
+        if csvdir==None:
+            combcsvfilepath = f"Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+        else:
+            combcsvfilepath = f"{csvdir}/Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
 
-    Returns
-    -------
-    Tuple(str, str, Dict[str:List[str]])
-        returns the collection name, last updated date, a dict of column info.
-        The dict will contain mapping_id, name, datatype, description, index,
-        as the keys.
-    '''
-    url = CFG.api['dataset'] + f'/{dataset_id}/' + CFG.api['meta']
-    
-    json_content = requests.get(url).json()
-    content = json_content['data']
-    content_inner = json_content['data']['columnMetadata']
-    
-    collection_name = content['name']
-    last_updated = content['lastUpdatedAt'][:10]
-    
-    col_mapping_id = content_inner['order'] # returns a list
-    col_name = []
-    col_datatype = []
-    col_description = []
-    col_index = []
-    
-    for x in col_mapping_id:
-        col_attr = content_inner['metaMapping'][x]
-        col_name.append(col_attr['name'])
-        col_datatype.append(col_attr['dataType'])
-        col_description.append(col_attr['description'])
-        col_index.append(col_attr['index'])
-    
-    col_info = {'col_mapping_id': col_mapping_id,
-                'col_name': col_name,
-                'col_datatype': col_datatype,
-                'col_description': col_description,
-                'col_index': col_index}
-    
-    return (collection_name, last_updated, col_info)
+        combinedpdf.to_csv(combcsvfilepath, index=False)
+        print(f'{combcsvfilepath} downloaded')
+            
+    return combinedpdf
+        
 
-# def dataset_download(dataset_id):
-#     url = CFG.api['dataset_dl'] + 
 
 
     

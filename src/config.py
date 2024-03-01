@@ -18,7 +18,9 @@ api = {
        'collection': 'https://api-production.data.gov.sg/v2/public/api/collections',
        'dataset': 'https://api-production.data.gov.sg/v2/public/api/datasets',
        'meta': 'metadata',
-       'dataset_dl': 'https://data.gov.sg/api/action/datastore_search?resource_id='
+       'dataset_dl': 'https://data.gov.sg/api/action/datastore_search?resource_id=',
+       'dataset_q_limit': '&limit=',
+       'dataset_q_offset': '&offset='
        }
 
 collection_list = 'https://api-production.data.gov.sg/v2/public/api/collections?page=2'
