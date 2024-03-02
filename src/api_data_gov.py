@@ -383,13 +383,16 @@ def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No'
             print(f'End of Dataset {x+1} out of {countofdataset}')
     
     if combcsv == 'Yes':
-        if csvdir==None:
-            combcsvfilepath = f"Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+        if countofdataset <= 1:
+            print('No combination needed as there is only 1 dataset.')
         else:
-            combcsvfilepath = f"{csvdir}/Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
-
-        combinedpdf.to_csv(combcsvfilepath, index=False)
-        print(f'{combcsvfilepath} downloaded')
+            if csvdir==None:
+                combcsvfilepath = f"Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+            else:
+                combcsvfilepath = f"{csvdir}/Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+    
+            combinedpdf.to_csv(combcsvfilepath, index=False)
+            print(f'{combcsvfilepath} downloaded')
             
     return combinedpdf
         
