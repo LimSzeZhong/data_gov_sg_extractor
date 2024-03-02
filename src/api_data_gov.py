@@ -269,7 +269,30 @@ class Dataset:
         
         return dtype_dict
     
+def dtype_to_json(pdf: pdDF, json_file_path: str) -> dict:
+    '''
+    Parameters
+    ----------
+    pdf : pandas.DataFrame
+        pandas.DataFrame so we can extract the dtype
+    json_file_path : str
+        the json file path location
         
+    Returns
+    -------
+    Dict
+        The dtype dictionary used
+    
+    To create a json file which stores the pandas dtype dictionary for
+    use when converting back from csv to pandas.DataFrame.
+    '''
+    dtype_dict = pdf.dtypes.apply(lambda x: str(x)).to_dict()
+    
+    with open(json_file_path, 'w') as json_file:
+        json.dump(dtype_dict, json_file)
+    
+    return dtype_dict
+      
 def json_to_dtype(jsonfilepath):
     with open(jsonfilepath, 'r') as json_file:
         loaded_dict = json.load(json_file)
@@ -388,11 +411,15 @@ def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No'
         else:
             if csvdir==None:
                 combcsvfilepath = f"Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+                combcsvjsonfp = f"Combined {collection_object.last_updated} {collection_object.collection_name}_dtype.json"
             else:
                 combcsvfilepath = f"{csvdir}/Combined {collection_object.last_updated} {collection_object.collection_name}.csv"
+                combcsvjsonfp = f"{csvdir}/Combined {collection_object.last_updated} {collection_object.collection_name}_dtype.json"
     
             combinedpdf.to_csv(combcsvfilepath, index=False)
+            dtype_to_json(combinedpdf, combcsvjsonfp)
             print(f'{combcsvfilepath} downloaded')
+            print(f'{combcsvjsonfp} downloaded')
             
     return combinedpdf
         
