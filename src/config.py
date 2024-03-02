@@ -4,6 +4,14 @@ Created on Tue Feb 27 20:30:40 2024
 
 @author: lim
 """
+'''
+###### Sample Links ######
+collection_list = 'https://api-production.data.gov.sg/v2/public/api/collections?page=2'
+collection_metadata = 'https://api-production.data.gov.sg/v2/public/api/collections/1/metadata'
+dataset_list = 'https://api-production.data.gov.sg/v2/public/api/datasets?page=2'
+dataset_metadata = 'https://api-production.data.gov.sg/v2/public/api/datasets/d_dcda79be4aded5f9e769b8e23ff69b47/metadata'
+dataset_info = 'https://data.gov.sg/api/action/datastore_search?resource_id=d_dcda79be4aded5f9e769b8e23ff69b47'
+'''
 
 ###### Datasets ######
 datasets = {
@@ -23,8 +31,3 @@ api = {
        'dataset_q_offset': '&offset='
        }
 
-collection_list = 'https://api-production.data.gov.sg/v2/public/api/collections?page=2'
-collection_metadata = 'https://api-production.data.gov.sg/v2/public/api/collections/1/metadata'
-dataset_list = 'https://api-production.data.gov.sg/v2/public/api/datasets?page=2'
-dataset_metadata = 'https://api-production.data.gov.sg/v2/public/api/datasets/d_dcda79be4aded5f9e769b8e23ff69b47/metadata'
-dataset_info = 'https://data.gov.sg/api/action/datastore_search?resource_id=d_dcda79be4aded5f9e769b8e23ff69b47'
