@@ -326,7 +326,7 @@ def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No'
     elif chk == 'No':
         
         for x in range(countofdataset):
-            print('Start of Dataset {x+1} out of {countofdataset}')
+            print(f'Start of Dataset {x+1} out of {countofdataset}')
             dataset_id = collection_object.dataset_id_list[x]
             
             if indcsv == 'Yes':
@@ -339,7 +339,7 @@ def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No'
                 combinedpdf = dataset_obj.dataframe_data
             else:
                 combinedpdf = pd.concat([combinedpdf, dataset_obj.dataframe_data], axis=0, ignore_index=True)
-            print('End of Dataset {x+1} out of {countofdataset}')
+            print(f'End of Dataset {x+1} out of {countofdataset}')
     
     if combcsv == 'Yes':
         if csvdir==None:
