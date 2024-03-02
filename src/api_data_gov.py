@@ -12,6 +12,7 @@ downloading the datasets.
 import pandas as pd
 import requests
 import os
+import json
 from typing import Optional, List, Dict, Tuple, TypeVar
 import src.config as CFG
 
@@ -93,6 +94,7 @@ class Dataset:
         self.dataframe_data = None
         self.total_results = 0
         self.csv_final_filepath = None
+        self.json_dtype_filepath = None
         
         self.dataset_info()
         
@@ -171,16 +173,24 @@ class Dataset:
         
         if directory==None:
             filepath = f"{self.last_updated} {self.dataset_name}.csv"
+            jsonfp = f"{self.last_updated} {self.dataset_name}_dtype.json"
         else:
             filepath = f"{directory}/{self.last_updated} {self.dataset_name}.csv"
+            jsonfp = f"{directory}/{self.last_updated} {self.dataset_name}_dtype.json"
         
         self.csv_final_filepath = filepath
+        self.json_dtype_filepath = jsonfp
         
         if self.dataframe_data is None:
             self.dataframe_data = self.dataset_download_pdf()
             
         self.dataframe_data.to_csv(self.csv_final_filepath, index=False)
+        
+        # Save the dtype to json
+        self.dtype_to_json(self.dataframe_data)
+        
         print(f'{self.csv_final_filepath} downloaded')
+        print(f'{self.json_dtype_filepath} created')
         
         return self.dataframe_data
     
@@ -237,6 +247,34 @@ class Dataset:
         
         return (0, offset_end, limit)
     
+    def dtype_to_json(self, pdf: pdDF) -> dict:
+        '''
+        Parameters
+        ----------
+        pdf : pandas.DataFrame
+            pandas.DataFrame so we can extract the dtype
+            
+        Returns
+        -------
+        Dict
+            The dtype dictionary used
+        
+        To create a json file which stores the pandas dtype dictionary for
+        use when converting back from csv to pandas.DataFrame.
+        '''
+        dtype_dict = pdf.dtypes.apply(lambda x: str(x)).to_dict()
+        
+        with open(self.json_dtype_filepath, 'w') as json_file:
+            json.dump(dtype_dict, json_file)
+        
+        return dtype_dict
+    
+        
+def json_to_dtype(jsonfilepath):
+    with open(jsonfilepath, 'r') as json_file:
+        loaded_dict = json.load(json_file)
+    return loaded_dict
+    
 def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No',\
                         indcsv: str = 'No', csvdir: Optional[str] = None)\
                         -> pdDF:
@@ -290,14 +328,17 @@ def download_collection(collection_id: str, chk: str = 'No', combcsv: str = 'No'
             d_obj = Dataset(d_id, 'No', 'No', csvdir)
             if csvdir==None:
                 filepath = f"{d_obj.last_updated} {d_obj.dataset_name}.csv"
+                jsonfp = f"{d_obj.last_updated} {d_obj.dataset_name}_dtype.json"
             else:
                 filepath = f"{csvdir}/{d_obj.last_updated} {d_obj.dataset_name}.csv"
+                jsonfp = f"{csvdir}/{d_obj.last_updated} {d_obj.dataset_name}_dtype.json"
 
-            if filepath in listindir:
+            if filepath in listindir and jsonfp in listindir:
+                dtypedict = json_to_dtype(jsonfp)
                 if combinedpdf is None:
-                    combinedpdf = pd.read_csv(filepath)
+                    combinedpdf = pd.read_csv(filepath, dtype=dtypedict)
                 else:
-                    pdf_not_missing = pd.read_csv(filepath)
+                    pdf_not_missing = pd.read_csv(filepath, dtype=dtypedict)
                     combinedpdf = pd.concat([combinedpdf, pdf_not_missing], axis=0, ignore_index=True)
             else:
                 missingdataset.append(d_id)
