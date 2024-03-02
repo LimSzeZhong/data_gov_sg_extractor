@@ -1,2 +1,2 @@
-# hdb_contractor_info
- ETL for contractor info
+# data_gov_sg_extractor
+ You may find some explanation on my medium page.
