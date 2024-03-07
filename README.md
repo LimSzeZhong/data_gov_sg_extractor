@@ -23,9 +23,23 @@ collection_id = "2"
 
 # Download entire collection
 download_collection(collection_id, chk='Yes', combcsv='Yes', indcsv='Yes', csvdir='data')
+```python
+
+## Additional Information
+
+To further understand the capabilities and usage of this package, consider the following:
+
+### Medium Article
+
+For insights into the development process and detailed usage examples, read my Medium article: [Extraction of Collections and Datasets Using data.gov.sg API](https://medium.com/data-and-beyond/extraction-of-collections-and-datasets-using-data-gov-sg-api-55919cafaed5).
+
+### Bug Reporting
+
+If you encounter any issues or bugs while using the package, please report them. Your feedback is valuable in improving the package.
 
 ## Known Issues
 
 - **dtype Warnings:** Loading CSV files into Pandas DataFrames may result in dtype warnings. This can be addressed by saving and using dtype dictionaries in JSON format alongside CSV files.
+
 
 
