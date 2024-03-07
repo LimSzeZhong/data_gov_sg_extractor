@@ -23,7 +23,7 @@ collection_id = "2"
 
 # Download entire collection
 download_collection(collection_id, chk='Yes', combcsv='Yes', indcsv='Yes', csvdir='data')
-```python
+```
 
 ## Additional Information
 
